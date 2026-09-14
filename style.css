@@ -350,6 +350,23 @@ button, input, select, textarea {
   color: var(--text-tertiary);
 }
 
+.cloud-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--accent-emerald);
+  font-size: 0.775rem;
+  font-weight: 600;
+}
+
+.cloud-sync-status.syncing {
+  color: var(--accent-cyan);
+}
+
+.cloud-sync-status.offline {
+  color: var(--text-tertiary);
+}
+
 .custom-select {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);

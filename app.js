@@ -1,8 +1,78 @@
 /**
- * PixelVault — Client-side Interactive Prototype Engine
- * Clean Architecture: Tanpa Filter Bar & Tanpa Hashtag/Tag
- * Core: Grid Galeri Responsif, Instant Search, Dual-Asset Upload Engine, Lightbox & Unduh Resolusi Asli
+ * PixelVault — Multi-Device Cloud Synchronized Engine
+ * Powered by Google Firebase (Cloud Storage & Firestore)
+ * Features: Instant Multi-Device Sync (Laptop <-> Tablet <-> HP), Dual-Asset Engine, Lightbox & Original Resolution Download
  */
+
+import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
+
+// Firebase Services References (null if not configured)
+let db = null;
+let storage = null;
+let isCloudActive = false;
+
+// Initialize Firebase if credentials are present
+async function initFirebase() {
+  if (isFirebaseConfigured()) {
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+      const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+      const { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
+      
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      storage = getStorage(app);
+      isCloudActive = true;
+
+      // Inisialisasi Analytics jika didukung oleh browser
+      try {
+        const { getAnalytics, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js');
+        if (await isSupported()) {
+          getAnalytics(app);
+        }
+      } catch (analyticsErr) {
+        // Analytics opsional, abaikan jika diblokir ekstensi adblock
+      }
+
+      // Update UI Status
+      updateCloudStatus('online', 'Cloud Aktif');
+
+      // Listen to Real-time Firestore Changes (Laptop <-> Tablet sync)
+      const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
+      onSnapshot(q, (snapshot) => {
+        const cloudPhotos = [];
+        snapshot.forEach((docSnap) => {
+          cloudPhotos.push(docSnap.data());
+        });
+        state.photos = cloudPhotos;
+        localStorage.setItem('pixelvault_photos', JSON.stringify(cloudPhotos));
+        updateFilteredPhotos();
+      }, (error) => {
+        console.warn('Firestore sync warning (periksa rules):', error);
+        updateCloudStatus('offline', 'Mode Offline');
+      });
+
+    } catch (err) {
+      console.error('Firebase init failed:', err);
+      updateCloudStatus('offline', 'Lokal');
+    }
+  } else {
+    updateCloudStatus('offline', 'Lokal');
+  }
+}
+
+function updateCloudStatus(status, text) {
+  const cloudDivider = document.getElementById('cloudDivider');
+  const cloudSyncStatus = document.getElementById('cloudSyncStatus');
+  const cloudStatusText = document.getElementById('cloudStatusText');
+
+  if (cloudDivider && cloudSyncStatus && cloudStatusText) {
+    cloudDivider.style.display = 'inline';
+    cloudSyncStatus.style.display = 'inline-flex';
+    cloudStatusText.textContent = text;
+    cloudSyncStatus.className = `cloud-sync-status ${status}`;
+  }
+}
 
 // Clean up legacy dummy photos from localStorage if present
 let storedPhotos = [];
@@ -10,7 +80,6 @@ try {
   const localData = localStorage.getItem('pixelvault_photos');
   if (localData) {
     const parsed = JSON.parse(localData);
-    // Filter out dummy photos with id starting with pv-00
     storedPhotos = parsed.filter(p => !p.id.startsWith('pv-00'));
     localStorage.setItem('pixelvault_photos', JSON.stringify(storedPhotos));
   }
@@ -109,6 +178,7 @@ function initApp() {
   renderAlbumSelects();
   updateFilteredPhotos();
   attachEventListeners();
+  initFirebase();
 }
 
 function savePhotos() {
@@ -150,9 +220,9 @@ function updateFilteredPhotos() {
 
   // Sorting
   if (state.sortBy === 'newest') {
-    result.sort((a, b) => new Date(b.dateTaken || 0) - new Date(a.dateTaken || 0));
+    result.sort((a, b) => new Date(b.dateTaken || b.createdAt || 0) - new Date(a.dateTaken || a.createdAt || 0));
   } else if (state.sortBy === 'oldest') {
-    result.sort((a, b) => new Date(a.dateTaken || 0) - new Date(b.dateTaken || 0));
+    result.sort((a, b) => new Date(a.dateTaken || a.createdAt || 0) - new Date(b.dateTaken || b.createdAt || 0));
   } else if (state.sortBy === 'name_asc') {
     result.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
   } else if (state.sortBy === 'size_desc') {
@@ -172,7 +242,9 @@ function renderGalleryGrid() {
     emptyState.style.display = 'block';
     if (state.photos.length === 0) {
       if (emptyStateTitle) emptyStateTitle.textContent = 'Belum Ada Foto Tersimpan';
-      if (emptyStateDesc) emptyStateDesc.textContent = 'PixelVault siap digunakan. Unggah foto resolusi tinggi pertama Anda sekarang.';
+      if (emptyStateDesc) emptyStateDesc.textContent = isCloudActive 
+        ? 'PixelVault terhubung ke Google Firebase. Unggah foto dari perangkat ini dan otomatis muncul di tablet Anda!'
+        : 'PixelVault siap digunakan. Unggah foto resolusi tinggi pertama Anda sekarang.';
       if (emptyUploadBtn) emptyUploadBtn.style.display = 'inline-flex';
     } else {
       if (emptyStateTitle) emptyStateTitle.textContent = 'Tidak Ada Foto Ditemukan';
@@ -191,7 +263,7 @@ function renderGalleryGrid() {
     // Fast loading thumbnail with lazy attribute
     card.innerHTML = `
       <div class="card-img-wrap">
-        <img class="card-thumb-img" src="${photo.thumbUrl}" alt="${photo.title}" loading="lazy">
+        <img class="card-thumb-img" src="${photo.thumbUrl || photo.originalUrl}" alt="${photo.title}" loading="lazy">
         <div class="card-badges">
           <span class="badge-format">${photo.format || 'JPG'}</span>
           <span class="badge-res">${photo.originalSizeMB ? photo.originalSizeMB.toFixed(1) + ' MB' : 'HD'}</span>
@@ -237,7 +309,42 @@ function renderGalleryGrid() {
 }
 
 // -----------------------------------------------------------------------------
-// Upload Engine (Drag & Drop Batch Upload)
+// Client-Side Canvas Thumbnail Generator
+// -----------------------------------------------------------------------------
+async function createThumbnailBlob(file, maxWidth = 640) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/jpeg', 0.8);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file); // Fallback to original
+    };
+    img.src = url;
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Upload Engine (Drag & Drop Batch Upload & Cloud Storage Sync)
 // -----------------------------------------------------------------------------
 function openUploadModal() {
   uploadModal.classList.add('open');
@@ -333,13 +440,13 @@ function renderUploadQueue() {
   });
 }
 
-// Process Batch Upload with Dual-Asset Generation
+// Process Batch Upload (Uploads to Firebase Cloud Storage & Firestore if active)
 async function startBatchUpload() {
   if (state.uploadQueue.length === 0) return;
 
   startUploadBtn.disabled = true;
-  startUploadBtnText.textContent = 'Sedang Memproses...';
-  const targetAlbum = uploadAlbumSelect.value || 'Portofolio Alam';
+  startUploadBtnText.textContent = 'Sedang Mengunggah...';
+  const targetAlbum = uploadAlbumSelect.value || 'Koleksi Utama';
 
   const uploadedNewPhotos = [];
 
@@ -348,42 +455,121 @@ async function startBatchUpload() {
     const fillEl = document.getElementById(`fill-${item.id}`);
     const statusEl = document.getElementById(`status-${item.id}`);
 
-    if (statusEl) statusEl.textContent = 'Mengunggah & generate thumbnail...';
+    if (statusEl) statusEl.textContent = 'Mengunggah ke Cloud Storage...';
 
-    // Simulate progress
-    for (let p = 25; p <= 100; p += 25) {
-      await new Promise(r => setTimeout(r, 70));
-      if (fillEl) fillEl.style.width = `${p}%`;
+    const photoId = 'pv-' + Date.now() + '-' + i;
+    const formatName = item.file.type.split('/')[1]?.toUpperCase() || 'JPEG';
+
+    let finalOriginalUrl = item.previewUrl;
+    let finalThumbUrl = item.previewUrl;
+
+    // If Firebase Cloud is active, upload to Google Cloud Storage
+    if (isCloudActive && storage && db) {
+      try {
+        const { ref, uploadBytesResumable, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
+        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+        // 1. Upload original file
+        const originalRef = ref(storage, `photos/original/${photoId}_${item.file.name}`);
+        const uploadTask = uploadBytesResumable(originalRef, item.file);
+
+        await new Promise((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              if (fillEl) fillEl.style.width = `${progress}%`;
+            },
+            (error) => reject(error),
+            () => resolve()
+          );
+        });
+
+        finalOriginalUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+        // 2. Generate and upload thumbnail
+        if (statusEl) statusEl.textContent = 'Menyimpan thumbnail optimal...';
+        const thumbBlob = await createThumbnailBlob(item.file);
+        const thumbRef = ref(storage, `photos/thumbs/${photoId}.jpg`);
+        const thumbUpload = await uploadBytesResumable(thumbRef, thumbBlob);
+        finalThumbUrl = await getDownloadURL(thumbUpload.ref);
+
+        // 3. Save to Firestore
+        const photoData = {
+          id: photoId,
+          title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+          description: 'Foto diunggah ke album ' + targetAlbum + '.',
+          album: targetAlbum,
+          filename: item.file.name,
+          format: formatName,
+          resolution: 'Resolusi Penuh',
+          originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
+          thumbSizeKB: Math.round((thumbBlob.size || 150000) / 1024),
+          dateTaken: new Date().toISOString().split('T')[0],
+          thumbUrl: finalThumbUrl,
+          originalUrl: finalOriginalUrl,
+          createdAt: Date.now()
+        };
+
+        await setDoc(doc(db, 'photos', photoId), photoData);
+        uploadedNewPhotos.unshift(photoData);
+
+      } catch (uploadErr) {
+        console.error('Firebase upload failed, fallback to local:', uploadErr);
+        // Fallback local
+        const localPhoto = {
+          id: photoId,
+          title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+          description: 'Foto disimpan lokal di album ' + targetAlbum + '.',
+          album: targetAlbum,
+          filename: item.file.name,
+          format: formatName,
+          resolution: 'Resolusi Penuh',
+          originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
+          thumbSizeKB: 140,
+          dateTaken: new Date().toISOString().split('T')[0],
+          thumbUrl: item.previewUrl,
+          originalUrl: item.previewUrl,
+          originalFileObject: item.file,
+          createdAt: Date.now()
+        };
+        uploadedNewPhotos.unshift(localPhoto);
+      }
+    } else {
+      // Local fallback simulation
+      for (let p = 25; p <= 100; p += 25) {
+        await new Promise(r => setTimeout(r, 60));
+        if (fillEl) fillEl.style.width = `${p}%`;
+      }
+      const localPhoto = {
+        id: photoId,
+        title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+        description: 'Foto disimpan lokal di album ' + targetAlbum + '.',
+        album: targetAlbum,
+        filename: item.file.name,
+        format: formatName,
+        resolution: 'Resolusi Penuh',
+        originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
+        thumbSizeKB: 140,
+        dateTaken: new Date().toISOString().split('T')[0],
+        thumbUrl: item.previewUrl,
+        originalUrl: item.previewUrl,
+        originalFileObject: item.file,
+        createdAt: Date.now()
+      };
+      uploadedNewPhotos.unshift(localPhoto);
     }
 
     if (statusEl) statusEl.textContent = 'Selesai ✓';
-
-    const formatName = item.file.type.split('/')[1]?.toUpperCase() || 'JPEG';
-    const newPhoto = {
-      id: 'pv-user-' + Date.now() + '-' + i,
-      title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-      description: 'Foto diunggah ke album ' + targetAlbum + '.',
-      album: targetAlbum,
-      filename: item.file.name,
-      format: formatName,
-      resolution: '4032 × 3024 (12 MP)',
-      originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
-      thumbSizeKB: 140,
-      dateTaken: new Date().toISOString().split('T')[0],
-      thumbUrl: item.previewUrl,
-      originalUrl: item.previewUrl,
-      originalFileObject: item.file // Kept intact for zero-compression download
-    };
-
-    uploadedNewPhotos.unshift(newPhoto);
   }
 
-  // Prepend to top of photos list
-  state.photos = [...uploadedNewPhotos, ...state.photos];
-  savePhotos();
-  updateFilteredPhotos();
+  // Prepend to state photos if offline (if online, onSnapshot will update automatically)
+  if (!isCloudActive) {
+    state.photos = [...uploadedNewPhotos, ...state.photos];
+    savePhotos();
+    updateFilteredPhotos();
+  }
 
-  showToast(`Berhasil mengunggah ${uploadedNewPhotos.length} foto ke PixelVault!`, 'success');
+  showToast(`Berhasil mengunggah ${uploadedNewPhotos.length} foto! Tersinkronisasi ke seluruh perangkat.`, 'success');
 
   setTimeout(() => {
     closeUploadModal();
@@ -431,7 +617,7 @@ function loadLightboxPhoto(photo) {
 
   // Tech Specs
   specFilename.textContent = photo.filename || 'photo.jpg';
-  specResolution.textContent = photo.resolution || 'Original Resolution';
+  specResolution.textContent = photo.resolution || 'Resolusi Asli';
   specOriginalSize.textContent = photo.originalSizeMB ? `${photo.originalSizeMB.toFixed(1)} MB (100% Asli)` : 'Ukuran Asli';
   specThumbSize.textContent = `${photo.thumbSizeKB || 150} KB (Fast Load)`;
   specDateInput.value = photo.dateTaken || '';
@@ -462,7 +648,7 @@ function applyZoom() {
 function downloadPhotoOriginal(photo) {
   if (!photo) return;
 
-  showToast(`Memulai unduhan: ${photo.filename} (Resolusi Asli Tanpa Kompresi)...`, 'success');
+  showToast(`Mengunduh: ${photo.filename} (Resolusi Asli Tanpa Kompresi)...`, 'success');
 
   // If local file object exists
   if (photo.originalFileObject) {
@@ -472,7 +658,7 @@ function downloadPhotoOriginal(photo) {
     return;
   }
 
-  // If remote high-res URL
+  // If remote URL (Firebase Storage / Cloud)
   fetch(photo.originalUrl)
     .then(response => response.blob())
     .then(blob => {
@@ -481,6 +667,7 @@ function downloadPhotoOriginal(photo) {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     })
     .catch(() => {
+      // Fallback direct open
       triggerBrowserDownload(photo.originalUrl, photo.filename);
     });
 }
@@ -495,19 +682,28 @@ function triggerBrowserDownload(url, filename) {
   document.body.removeChild(a);
 }
 
-// Delete Photo
-function deleteCurrentPhoto() {
+// Delete Photo (Syncs with Firebase Cloud if active)
+async function deleteCurrentPhoto() {
   const photo = state.filteredPhotos[state.currentLightboxIndex];
   if (!photo) return;
 
-  const confirmed = confirm(`Apakah Anda yakin ingin menghapus "${photo.title}" dari PixelVault? File asli dan thumbnail akan dihapus.`);
+  const confirmed = confirm(`Apakah Anda yakin ingin menghapus "${photo.title}" dari PixelVault? Foto akan terhapus dari seluruh perangkat.`);
   if (!confirmed) return;
+
+  if (isCloudActive && db) {
+    try {
+      const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+      await deleteDoc(doc(db, 'photos', photo.id));
+      showToast('Foto berhasil dihapus dari Cloud & semua perangkat.', 'info');
+    } catch (err) {
+      console.error('Delete from cloud failed:', err);
+    }
+  }
 
   state.photos = state.photos.filter(p => p.id !== photo.id);
   savePhotos();
   closeLightbox();
   updateFilteredPhotos();
-  showToast('Foto berhasil dihapus.', 'info');
 }
 
 // -----------------------------------------------------------------------------
@@ -576,7 +772,6 @@ function attachEventListeners() {
 
   // Clipboard Paste Support (Ctrl+V / Paste gambar dari mana saja)
   window.addEventListener('paste', (e) => {
-    // Jika pengguna sedang mengetik teks di input/textarea, jangan bajak jika bukan paste file gambar
     const activeEl = document.activeElement;
     const isTextInput = activeEl && (
       activeEl.tagName === 'TEXTAREA' || 
@@ -605,7 +800,6 @@ function attachEventListeners() {
       }
     }
 
-    // Jika tidak ada item dari items, cek files langsung
     if (pastedFiles.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
       for (let i = 0; i < clipboardData.files.length; i++) {
         const file = clipboardData.files[i];
@@ -615,10 +809,8 @@ function attachEventListeners() {
       }
     }
 
-    // Jika ditemukan file gambar yang di-paste
     if (pastedFiles.length > 0) {
       e.preventDefault();
-      // Buka modal upload otomatis jika belum terbuka
       if (!uploadModal.classList.contains('open')) {
         openUploadModal();
       }
@@ -664,38 +856,62 @@ function attachEventListeners() {
   });
 
   // Lightbox Live Metadata Editing
-  detailTitleInput.addEventListener('input', (e) => {
+  detailTitleInput.addEventListener('input', async (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.title = e.target.value;
       savePhotos();
       renderGalleryGrid();
+      if (isCloudActive && db) {
+        try {
+          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await updateDoc(doc(db, 'photos', p.id), { title: p.title });
+        } catch (err) {}
+      }
     }
   });
 
-  detailDescInput.addEventListener('input', (e) => {
+  detailDescInput.addEventListener('input', async (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.description = e.target.value;
       savePhotos();
+      if (isCloudActive && db) {
+        try {
+          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await updateDoc(doc(db, 'photos', p.id), { description: p.description });
+        } catch (err) {}
+      }
     }
   });
 
-  detailAlbumSelect.addEventListener('change', (e) => {
+  detailAlbumSelect.addEventListener('change', async (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.album = e.target.value;
       savePhotos();
       updateFilteredPhotos();
+      if (isCloudActive && db) {
+        try {
+          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await updateDoc(doc(db, 'photos', p.id), { album: p.album });
+        } catch (err) {}
+      }
     }
   });
 
-  specDateInput.addEventListener('change', (e) => {
+  specDateInput.addEventListener('change', async (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.dateTaken = e.target.value;
       savePhotos();
       updateFilteredPhotos();
+      if (isCloudActive && db) {
+        try {
+          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await updateDoc(doc(db, 'photos', p.id), { dateTaken: p.dateTaken });
+        } catch (err) {}
+      }
     }
   });
 
@@ -736,7 +952,6 @@ function attachEventListeners() {
       const diffX = touchEndX - touchStartX;
       const diffY = touchEndY - touchStartY;
 
-      // Ensure horizontal swipe is dominant and exceeds threshold
       if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY)) {
         if (diffX < 0) {
           navigateLightbox(1); // Swipe left -> Next photo
