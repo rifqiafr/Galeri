@@ -1,63 +1,103 @@
 /**
- * PixelVault — Multi-Device Cloud Synchronized Engine
- * Powered by Google Firebase (Cloud Storage & Firestore)
- * Features: Instant Multi-Device Sync (Laptop <-> Tablet <-> HP), Dual-Asset Engine, Lightbox & Original Resolution Download
+ * PixelVault — High Performance Local Dual-Asset Engine
+ * Powered by Client-Side IndexedDB & HTML5 Canvas
+ * 100% Instant Upload, Zero Network Delay, Master Resolution Preservation
  */
 
 import { firebaseConfig, isFirebaseConfigured } from './firebase-config.js';
 
-// Firebase Services References (null if not configured)
-let db = null;
-let storage = null;
-let isCloudActive = false;
+// -----------------------------------------------------------------------------
+// IndexedDB Local Master Vault Engine (Menyimpan file master asli gigabytes di browser)
+// -----------------------------------------------------------------------------
+const IDB_NAME = 'PixelVaultLocalDB';
+const IDB_VERSION = 1;
+const IDB_STORE = 'photos_master';
 
-// Initialize Firebase if credentials are present
-async function initFirebase() {
-  if (isFirebaseConfigured()) {
-    try {
-      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-      const { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-      const { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-      
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      storage = getStorage(app);
-      isCloudActive = true;
-
-      // Inisialisasi Analytics jika didukung oleh browser
-      try {
-        const { getAnalytics, isSupported } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js');
-        if (await isSupported()) {
-          getAnalytics(app);
-        }
-      } catch (analyticsErr) {
-        // Analytics opsional, abaikan jika diblokir ekstensi adblock
+function openVaultDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'id' });
       }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
-      // Update UI Status
-      updateCloudStatus('online', 'Cloud Aktif');
+async function saveVaultBlob(id, originalBlob) {
+  try {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.put({ id, originalBlob, savedAt: Date.now() });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('Gagal menyimpan file asli ke IndexedDB:', err);
+    return false;
+  }
+}
 
-      // Listen to Real-time Firestore Changes (Laptop <-> Tablet sync)
-      const q = query(collection(db, 'photos'), orderBy('createdAt', 'desc'));
-      onSnapshot(q, (snapshot) => {
-        const cloudPhotos = [];
-        snapshot.forEach((docSnap) => {
-          cloudPhotos.push(docSnap.data());
-        });
-        state.photos = cloudPhotos;
-        localStorage.setItem('pixelvault_photos', JSON.stringify(cloudPhotos));
-        updateFilteredPhotos();
-      }, (error) => {
-        console.warn('Firestore sync warning (periksa rules):', error);
-        updateCloudStatus('offline', 'Mode Offline');
-      });
+async function getVaultBlob(id) {
+  try {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result ? req.result.originalBlob : null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('Gagal mengambil file asli dari IndexedDB:', err);
+    return null;
+  }
+}
 
-    } catch (err) {
-      console.error('Firebase init failed:', err);
-      updateCloudStatus('offline', 'Lokal');
-    }
-  } else {
-    updateCloudStatus('offline', 'Lokal');
+async function deleteVaultBlob(id) {
+  try {
+    const db = await openVaultDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.warn('Gagal menghapus file dari IndexedDB:', err);
+    return false;
+  }
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Inisialisasi status penyimpanan
+function initFirebase() {
+  updateCloudStatus('local', 'Penyimpanan Lokal (Instan)');
+  // Optional: Firebase analytics if enabled
+  if (isFirebaseConfigured()) {
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js')
+      .then(({ initializeApp }) => {
+        const app = initializeApp(firebaseConfig);
+        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js')
+          .then(({ getAnalytics, isSupported }) => {
+            isSupported().then(supported => {
+              if (supported) getAnalytics(app);
+            });
+          }).catch(() => {});
+      }).catch(() => {});
   }
 }
 
@@ -242,9 +282,7 @@ function renderGalleryGrid() {
     emptyState.style.display = 'block';
     if (state.photos.length === 0) {
       if (emptyStateTitle) emptyStateTitle.textContent = 'Belum Ada Foto Tersimpan';
-      if (emptyStateDesc) emptyStateDesc.textContent = isCloudActive 
-        ? 'PixelVault terhubung ke Google Firebase. Unggah foto dari perangkat ini dan otomatis muncul di tablet Anda!'
-        : 'PixelVault siap digunakan. Unggah foto resolusi tinggi pertama Anda sekarang.';
+      if (emptyStateDesc) emptyStateDesc.textContent = 'PixelVault siap digunakan. Unggah foto resolusi tinggi pertama Anda (proses instan & kualitas 100% asli).';
       if (emptyUploadBtn) emptyUploadBtn.style.display = 'inline-flex';
     } else {
       if (emptyStateTitle) emptyStateTitle.textContent = 'Tidak Ada Foto Ditemukan';
@@ -440,27 +478,15 @@ function renderUploadQueue() {
   });
 }
 
-// Process Batch Upload (Uploads to Firebase Cloud Storage & Firestore if active)
+// Process Batch Upload (Ultra-Fast Local Dual-Asset Engine via IndexedDB)
 async function startBatchUpload() {
   if (state.uploadQueue.length === 0) return;
 
   startUploadBtn.disabled = true;
-  startUploadBtnText.textContent = 'Sedang Mengunggah...';
+  startUploadBtnText.textContent = 'Menyimpan...';
   const targetAlbum = uploadAlbumSelect.value || 'Koleksi Utama';
 
   const uploadedNewPhotos = [];
-
-  // Muat modul Firebase sekali di awal agar tidak overhead
-  let storageModule = null;
-  let firestoreModule = null;
-  if (isCloudActive && storage && db) {
-    try {
-      storageModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-      firestoreModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-    } catch (loadErr) {
-      console.warn('Gagal memuat modul Firebase, menggunakan penyimpanan lokal:', loadErr);
-    }
-  }
 
   for (let i = 0; i < state.uploadQueue.length; i++) {
     const item = state.uploadQueue[i];
@@ -470,147 +496,51 @@ async function startBatchUpload() {
     const photoId = 'pv-' + Date.now() + '-' + i;
     const formatName = item.file.type.split('/')[1]?.toUpperCase() || 'JPEG';
 
-    let finalOriginalUrl = item.previewUrl;
-    let finalThumbUrl = item.previewUrl;
+    if (statusEl) statusEl.textContent = 'Membuat thumbnail optimal...';
+    if (fillEl) fillEl.style.width = '30%';
 
-    // Jika Firebase Cloud aktif, unggah secara paralel (file asli + thumbnail bersamaan)
-    if (isCloudActive && storage && db && storageModule && firestoreModule) {
-      try {
-        if (statusEl) statusEl.textContent = 'Memulai unggahan ke Cloud...';
+    // 1. Generate fast thumbnail blob & Data URL via Canvas
+    const thumbBlob = await createThumbnailBlob(item.file, 640);
+    const thumbDataUrl = await blobToDataURL(thumbBlob);
 
-        const { ref, uploadBytesResumable, getDownloadURL } = storageModule;
-        const { doc, setDoc } = firestoreModule;
+    if (statusEl) statusEl.textContent = 'Menyimpan master asli ke Vault...';
+    if (fillEl) fillEl.style.width = '70%';
 
-        // 1. Task Upload File Asli (dengan tracking progress %)
-        const originalRef = ref(storage, `photos/original/${photoId}_${item.file.name}`);
-        const uploadTask = uploadBytesResumable(originalRef, item.file);
+    // 2. Simpan file master asli 100% tanpa kompresi ke IndexedDB
+    await saveVaultBlob(photoId, item.file);
 
-        const uploadOriginalPromise = new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => {
-              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-              if (fillEl) fillEl.style.width = `${progress}%`;
-              if (statusEl) statusEl.textContent = `Mengunggah foto asli: ${progress}%`;
-            },
-            (error) => reject(error),
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (e) {
-                reject(e);
-              }
-            }
-          );
-        });
+    if (fillEl) fillEl.style.width = '100%';
+    if (statusEl) statusEl.textContent = 'Tersimpan ✓';
 
-        // 2. Task Buat & Upload Thumbnail secara Paralel (Simultan)
-        const uploadThumbnailPromise = (async () => {
-          const thumbBlob = await createThumbnailBlob(item.file);
-          const thumbRef = ref(storage, `photos/thumbs/${photoId}.jpg`);
-          const thumbUpload = await uploadBytesResumable(thumbRef, thumbBlob);
-          const thumbUrl = await getDownloadURL(thumbUpload.ref);
-          return { thumbBlob, thumbUrl };
-        })();
+    const photoData = {
+      id: photoId,
+      title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+      description: 'Foto tersimpan di album ' + targetAlbum + '.',
+      album: targetAlbum,
+      filename: item.file.name,
+      format: formatName,
+      resolution: 'Resolusi Penuh',
+      originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
+      thumbSizeKB: Math.round((thumbBlob.size || 150000) / 1024),
+      dateTaken: new Date().toISOString().split('T')[0],
+      thumbUrl: thumbDataUrl,
+      originalUrl: thumbDataUrl,
+      createdAt: Date.now()
+    };
 
-        // Jalankan kedua unggahan secara paralel
-        const [origUrl, thumbResult] = await Promise.all([
-          uploadOriginalPromise,
-          uploadThumbnailPromise
-        ]);
-
-        finalOriginalUrl = origUrl;
-        finalThumbUrl = thumbResult.thumbUrl;
-        const thumbBlob = thumbResult.thumbBlob;
-
-        if (statusEl) statusEl.textContent = 'Menyimpan metadata...';
-
-        // 3. Simpan metadata ke Firestore
-        const photoData = {
-          id: photoId,
-          title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-          description: 'Foto diunggah ke album ' + targetAlbum + '.',
-          album: targetAlbum,
-          filename: item.file.name,
-          format: formatName,
-          resolution: 'Resolusi Penuh',
-          originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
-          thumbSizeKB: Math.round((thumbBlob.size || 150000) / 1024),
-          dateTaken: new Date().toISOString().split('T')[0],
-          thumbUrl: finalThumbUrl,
-          originalUrl: finalOriginalUrl,
-          createdAt: Date.now()
-        };
-
-        await setDoc(doc(db, 'photos', photoId), photoData);
-        uploadedNewPhotos.unshift(photoData);
-
-      } catch (uploadErr) {
-        console.error('Firebase upload error:', uploadErr);
-        if (uploadErr.code === 'storage/unauthorized' || uploadErr.message?.includes('permission')) {
-          showToast('Izin Firebase ditolak! Pastikan Rules di Firebase Console sudah diatur ke allow read, write: if true;', 'danger');
-        } else {
-          showToast('Koneksi Cloud lambat/gagal, foto dialihkan ke memori lokal.', 'info');
-        }
-        // Fallback local
-        const localPhoto = {
-          id: photoId,
-          title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-          description: 'Foto disimpan lokal di album ' + targetAlbum + '.',
-          album: targetAlbum,
-          filename: item.file.name,
-          format: formatName,
-          resolution: 'Resolusi Penuh',
-          originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
-          thumbSizeKB: 140,
-          dateTaken: new Date().toISOString().split('T')[0],
-          thumbUrl: item.previewUrl,
-          originalUrl: item.previewUrl,
-          originalFileObject: item.file,
-          createdAt: Date.now()
-        };
-        uploadedNewPhotos.unshift(localPhoto);
-      }
-    } else {
-      // Local fallback simulation
-      for (let p = 25; p <= 100; p += 25) {
-        await new Promise(r => setTimeout(r, 60));
-        if (fillEl) fillEl.style.width = `${p}%`;
-      }
-      const localPhoto = {
-        id: photoId,
-        title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
-        description: 'Foto disimpan lokal di album ' + targetAlbum + '.',
-        album: targetAlbum,
-        filename: item.file.name,
-        format: formatName,
-        resolution: 'Resolusi Penuh',
-        originalSizeMB: parseFloat(item.sizeMB.toFixed(2)),
-        thumbSizeKB: 140,
-        dateTaken: new Date().toISOString().split('T')[0],
-        thumbUrl: item.previewUrl,
-        originalUrl: item.previewUrl,
-        originalFileObject: item.file,
-        createdAt: Date.now()
-      };
-      uploadedNewPhotos.unshift(localPhoto);
-    }
-
-    if (statusEl) statusEl.textContent = 'Selesai ✓';
+    uploadedNewPhotos.unshift(photoData);
   }
 
-  // Prepend to state photos if offline (if online, onSnapshot will update automatically)
-  if (!isCloudActive) {
-    state.photos = [...uploadedNewPhotos, ...state.photos];
-    savePhotos();
-    updateFilteredPhotos();
-  }
+  // Prepend ke state lokal
+  state.photos = [...uploadedNewPhotos, ...state.photos];
+  savePhotos();
+  updateFilteredPhotos();
 
-  showToast(`Berhasil mengunggah ${uploadedNewPhotos.length} foto! Tersinkronisasi ke seluruh perangkat.`, 'success');
+  showToast(`Berhasil menyimpan ${uploadedNewPhotos.length} foto ke Vault lokal secara instan!`, 'success');
 
   setTimeout(() => {
     closeUploadModal();
-  }, 400);
+  }, 350);
 }
 
 // -----------------------------------------------------------------------------
@@ -643,8 +573,14 @@ function loadLightboxPhoto(photo) {
   // Counter
   lightboxIndexCounter.textContent = `Foto ${state.currentLightboxIndex + 1} dari ${state.filteredPhotos.length}`;
 
-  // Main Image (high-res)
-  lightboxMainImg.src = photo.originalUrl || photo.thumbUrl;
+  // Main Image: tampilkan thumbnail instan, kemudian ambil master blob resolusi tinggi dari IndexedDB
+  lightboxMainImg.src = photo.thumbUrl || photo.originalUrl;
+  getVaultBlob(photo.id).then(blob => {
+    if (blob) {
+      const highResUrl = URL.createObjectURL(blob);
+      lightboxMainImg.src = highResUrl;
+    }
+  }).catch(() => {});
 
   // Drawer Information
   drawerFormatBadge.textContent = photo.format || 'JPEG';
@@ -654,7 +590,7 @@ function loadLightboxPhoto(photo) {
 
   // Tech Specs
   specFilename.textContent = photo.filename || 'photo.jpg';
-  specResolution.textContent = photo.resolution || 'Resolusi Asli';
+  specResolution.textContent = photo.resolution || 'Resolusi Penuh';
   specOriginalSize.textContent = photo.originalSizeMB ? `${photo.originalSizeMB.toFixed(1)} MB (100% Asli)` : 'Ukuran Asli';
   specThumbSize.textContent = `${photo.thumbSizeKB || 150} KB (Fast Load)`;
   specDateInput.value = photo.dateTaken || '';
@@ -682,12 +618,25 @@ function applyZoom() {
 // -----------------------------------------------------------------------------
 // Original Resolution Download (PRD Core Feature)
 // -----------------------------------------------------------------------------
-function downloadPhotoOriginal(photo) {
+async function downloadPhotoOriginal(photo) {
   if (!photo) return;
 
   showToast(`Mengunduh: ${photo.filename} (Resolusi Asli Tanpa Kompresi)...`, 'success');
 
-  // If local file object exists
+  // Ambil file master asli langsung dari IndexedDB
+  try {
+    const blob = await getVaultBlob(photo.id);
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      triggerBrowserDownload(url, photo.filename);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      return;
+    }
+  } catch (err) {
+    console.warn('Gagal membaca dari IndexedDB:', err);
+  }
+
+  // Jika file object lokal masih ada di memori
   if (photo.originalFileObject) {
     const url = URL.createObjectURL(photo.originalFileObject);
     triggerBrowserDownload(url, photo.filename);
@@ -695,18 +644,10 @@ function downloadPhotoOriginal(photo) {
     return;
   }
 
-  // If remote URL (Firebase Storage / Cloud)
-  fetch(photo.originalUrl)
-    .then(response => response.blob())
-    .then(blob => {
-      const url = URL.createObjectURL(blob);
-      triggerBrowserDownload(url, photo.filename);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    })
-    .catch(() => {
-      // Fallback direct open
-      triggerBrowserDownload(photo.originalUrl, photo.filename);
-    });
+  // Fallback direct open
+  if (photo.originalUrl) {
+    triggerBrowserDownload(photo.originalUrl, photo.filename);
+  }
 }
 
 function triggerBrowserDownload(url, filename) {
@@ -719,28 +660,22 @@ function triggerBrowserDownload(url, filename) {
   document.body.removeChild(a);
 }
 
-// Delete Photo (Syncs with Firebase Cloud if active)
+// Delete Photo (Hapus metadata dan file master di IndexedDB)
 async function deleteCurrentPhoto() {
   const photo = state.filteredPhotos[state.currentLightboxIndex];
   if (!photo) return;
 
-  const confirmed = confirm(`Apakah Anda yakin ingin menghapus "${photo.title}" dari PixelVault? Foto akan terhapus dari seluruh perangkat.`);
+  const confirmed = confirm(`Apakah Anda yakin ingin menghapus "${photo.title}" dari PixelVault?`);
   if (!confirmed) return;
 
-  if (isCloudActive && db) {
-    try {
-      const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-      await deleteDoc(doc(db, 'photos', photo.id));
-      showToast('Foto berhasil dihapus dari Cloud & semua perangkat.', 'info');
-    } catch (err) {
-      console.error('Delete from cloud failed:', err);
-    }
-  }
+  // Hapus dari IndexedDB
+  await deleteVaultBlob(photo.id);
 
   state.photos = state.photos.filter(p => p.id !== photo.id);
   savePhotos();
   closeLightbox();
   updateFilteredPhotos();
+  showToast('Foto berhasil dihapus.', 'info');
 }
 
 // -----------------------------------------------------------------------------
@@ -893,62 +828,38 @@ function attachEventListeners() {
   });
 
   // Lightbox Live Metadata Editing
-  detailTitleInput.addEventListener('input', async (e) => {
+  detailTitleInput.addEventListener('input', (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.title = e.target.value;
       savePhotos();
       renderGalleryGrid();
-      if (isCloudActive && db) {
-        try {
-          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(doc(db, 'photos', p.id), { title: p.title });
-        } catch (err) {}
-      }
     }
   });
 
-  detailDescInput.addEventListener('input', async (e) => {
+  detailDescInput.addEventListener('input', (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.description = e.target.value;
       savePhotos();
-      if (isCloudActive && db) {
-        try {
-          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(doc(db, 'photos', p.id), { description: p.description });
-        } catch (err) {}
-      }
     }
   });
 
-  detailAlbumSelect.addEventListener('change', async (e) => {
+  detailAlbumSelect.addEventListener('change', (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.album = e.target.value;
       savePhotos();
       updateFilteredPhotos();
-      if (isCloudActive && db) {
-        try {
-          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(doc(db, 'photos', p.id), { album: p.album });
-        } catch (err) {}
-      }
     }
   });
 
-  specDateInput.addEventListener('change', async (e) => {
+  specDateInput.addEventListener('change', (e) => {
     const p = state.filteredPhotos[state.currentLightboxIndex];
     if (p) {
       p.dateTaken = e.target.value;
       savePhotos();
       updateFilteredPhotos();
-      if (isCloudActive && db) {
-        try {
-          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
-          await updateDoc(doc(db, 'photos', p.id), { dateTaken: p.dateTaken });
-        } catch (err) {}
-      }
     }
   });
 

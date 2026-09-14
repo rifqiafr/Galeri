@@ -363,6 +363,10 @@ button, input, select, textarea {
   color: var(--accent-cyan);
 }
 
+.cloud-sync-status.local {
+  color: var(--accent-cyan);
+}
+
 .cloud-sync-status.offline {
   color: var(--text-tertiary);
 }
