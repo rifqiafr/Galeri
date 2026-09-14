@@ -450,12 +450,22 @@ async function startBatchUpload() {
 
   const uploadedNewPhotos = [];
 
+  // Muat modul Firebase sekali di awal agar tidak overhead
+  let storageModule = null;
+  let firestoreModule = null;
+  if (isCloudActive && storage && db) {
+    try {
+      storageModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
+      firestoreModule = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    } catch (loadErr) {
+      console.warn('Gagal memuat modul Firebase, menggunakan penyimpanan lokal:', loadErr);
+    }
+  }
+
   for (let i = 0; i < state.uploadQueue.length; i++) {
     const item = state.uploadQueue[i];
     const fillEl = document.getElementById(`fill-${item.id}`);
     const statusEl = document.getElementById(`status-${item.id}`);
-
-    if (statusEl) statusEl.textContent = 'Mengunggah ke Cloud Storage...';
 
     const photoId = 'pv-' + Date.now() + '-' + i;
     const formatName = item.file.type.split('/')[1]?.toUpperCase() || 'JPEG';
@@ -463,37 +473,59 @@ async function startBatchUpload() {
     let finalOriginalUrl = item.previewUrl;
     let finalThumbUrl = item.previewUrl;
 
-    // If Firebase Cloud is active, upload to Google Cloud Storage
-    if (isCloudActive && storage && db) {
+    // Jika Firebase Cloud aktif, unggah secara paralel (file asli + thumbnail bersamaan)
+    if (isCloudActive && storage && db && storageModule && firestoreModule) {
       try {
-        const { ref, uploadBytesResumable, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
-        const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+        if (statusEl) statusEl.textContent = 'Memulai unggahan ke Cloud...';
 
-        // 1. Upload original file
+        const { ref, uploadBytesResumable, getDownloadURL } = storageModule;
+        const { doc, setDoc } = firestoreModule;
+
+        // 1. Task Upload File Asli (dengan tracking progress %)
         const originalRef = ref(storage, `photos/original/${photoId}_${item.file.name}`);
         const uploadTask = uploadBytesResumable(originalRef, item.file);
 
-        await new Promise((resolve, reject) => {
+        const uploadOriginalPromise = new Promise((resolve, reject) => {
           uploadTask.on('state_changed', 
             (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
               if (fillEl) fillEl.style.width = `${progress}%`;
+              if (statusEl) statusEl.textContent = `Mengunggah foto asli: ${progress}%`;
             },
             (error) => reject(error),
-            () => resolve()
+            async () => {
+              try {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(url);
+              } catch (e) {
+                reject(e);
+              }
+            }
           );
         });
 
-        finalOriginalUrl = await getDownloadURL(uploadTask.snapshot.ref);
+        // 2. Task Buat & Upload Thumbnail secara Paralel (Simultan)
+        const uploadThumbnailPromise = (async () => {
+          const thumbBlob = await createThumbnailBlob(item.file);
+          const thumbRef = ref(storage, `photos/thumbs/${photoId}.jpg`);
+          const thumbUpload = await uploadBytesResumable(thumbRef, thumbBlob);
+          const thumbUrl = await getDownloadURL(thumbUpload.ref);
+          return { thumbBlob, thumbUrl };
+        })();
 
-        // 2. Generate and upload thumbnail
-        if (statusEl) statusEl.textContent = 'Menyimpan thumbnail optimal...';
-        const thumbBlob = await createThumbnailBlob(item.file);
-        const thumbRef = ref(storage, `photos/thumbs/${photoId}.jpg`);
-        const thumbUpload = await uploadBytesResumable(thumbRef, thumbBlob);
-        finalThumbUrl = await getDownloadURL(thumbUpload.ref);
+        // Jalankan kedua unggahan secara paralel
+        const [origUrl, thumbResult] = await Promise.all([
+          uploadOriginalPromise,
+          uploadThumbnailPromise
+        ]);
 
-        // 3. Save to Firestore
+        finalOriginalUrl = origUrl;
+        finalThumbUrl = thumbResult.thumbUrl;
+        const thumbBlob = thumbResult.thumbBlob;
+
+        if (statusEl) statusEl.textContent = 'Menyimpan metadata...';
+
+        // 3. Simpan metadata ke Firestore
         const photoData = {
           id: photoId,
           title: item.file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
@@ -514,7 +546,12 @@ async function startBatchUpload() {
         uploadedNewPhotos.unshift(photoData);
 
       } catch (uploadErr) {
-        console.error('Firebase upload failed, fallback to local:', uploadErr);
+        console.error('Firebase upload error:', uploadErr);
+        if (uploadErr.code === 'storage/unauthorized' || uploadErr.message?.includes('permission')) {
+          showToast('Izin Firebase ditolak! Pastikan Rules di Firebase Console sudah diatur ke allow read, write: if true;', 'danger');
+        } else {
+          showToast('Koneksi Cloud lambat/gagal, foto dialihkan ke memori lokal.', 'info');
+        }
         // Fallback local
         const localPhoto = {
           id: photoId,
