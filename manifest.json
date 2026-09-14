@@ -1,0 +1,27 @@
+{
+  "name": "PixelVault — Personal Visual Storage",
+  "short_name": "PixelVault",
+  "description": "Aplikasi Web Penyimpanan Foto Pribadi Resolusi Asli Tanpa Login",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#0d121f",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["photo", "utilities", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Unggah Foto",
+      "url": "./index.html?action=upload",
+      "description": "Buka modal unggah foto baru"
+    }
+  ]
+}

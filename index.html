@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelVault — Personal Visual Storage</title>
+  <meta name="description" content="PixelVault: Platform penyimpanan foto pribadi terpusat tanpa login, cepat dengan thumbnail optimal dan unduhan resolusi asli.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <meta name="theme-color" content="#0d121f">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Background Glow Accents -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- Header / Navbar -->
+  <header class="navbar" id="main-navbar">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+            <path d="M18 14v4h-4"/>
+            <path d="m14 14 6 6"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">PixelVault</span>
+          <span class="brand-badge">Personal Storage</span>
+        </div>
+      </div>
+
+      <!-- Center Search Bar -->
+      <div class="search-wrapper">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Cari foto, album, nama file..." autocomplete="off">
+        <button id="clearSearchBtn" class="clear-search-btn" title="Hapus pencarian" style="display: none;">&times;</button>
+      </div>
+
+      <!-- Action Area -->
+      <div class="nav-actions">
+        <!-- Install Desktop / Home Screen Shortcut Button -->
+        <button class="btn btn-secondary" id="installAppBtn" title="Pasang ke Desktop / Layar Utama" style="display: none;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span class="install-text">Pasang App</span>
+        </button>
+
+        <button class="btn btn-primary" id="openUploadBtn" title="Unggah Foto Baru">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>Unggah Foto</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+    
+    <!-- Clean Overview Bar: Stats & Sorting (Filter & Hashtag Dihilangkan) -->
+    <section class="overview-bar">
+      <div class="stat-pill" id="photoStats">
+        <span class="stat-dot"></span>
+        <span id="statsCountText">0 Foto</span>
+        <span class="stat-divider">•</span>
+        <span id="statsSizeText">0 MB Tersimpan</span>
+      </div>
+
+      <div class="sort-wrapper">
+        <select id="sortSelect" class="custom-select" title="Urutkan Koleksi">
+          <option value="newest">Terbaru</option>
+          <option value="oldest">Terlama</option>
+          <option value="name_asc">Nama (A-Z)</option>
+          <option value="size_desc">Ukuran Terbesar</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Gallery Grid Section -->
+    <section class="gallery-section">
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon-wrap">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+        </div>
+        <h3 id="emptyStateTitle">Belum Ada Foto Tersimpan</h3>
+        <p id="emptyStateDesc">PixelVault siap digunakan. Unggah foto resolusi tinggi pertama Anda sekarang.</p>
+        <button class="btn btn-primary" id="emptyUploadBtn" style="margin-top: 1.25rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span>Unggah Foto Sekarang</span>
+        </button>
+      </div>
+
+      <!-- Grid Container -->
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Photo cards rendered dynamically -->
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Batch Upload -->
+  <div class="modal-backdrop" id="uploadModal" aria-hidden="true">
+    <div class="modal-dialog modal-upload">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-header-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <div>
+            <h2>Unggah Foto ke PixelVault</h2>
+            <p class="modal-subtitle">Thumbnail otomatis dibuat cepat, file asli tersimpan aman tanpa kompresi.</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeUploadModalBtn" title="Tutup">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Drag & Drop Zone -->
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp" style="display: none;">
+          <div class="dropzone-content">
+            <div class="dropzone-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <h4>Tarik & Lepaskan foto di sini (Drag & Drop)</h4>
+            <p>atau <button type="button" class="btn-text" id="browseFilesBtn">Pilih File dari Perangkat</button></p>
+            <div class="dropzone-paste-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              <span>Tekan <strong>Ctrl + V</strong> untuk Paste gambar langsung dari Clipboard</span>
+            </div>
+            <span class="dropzone-hint">Mendukung format JPEG, PNG, WebP (Bisa banyak file sekaligus)</span>
+          </div>
+        </div>
+
+        <!-- Batch Settings -->
+        <div class="batch-settings single-field">
+          <div class="form-group">
+            <label for="uploadAlbumSelect">Simpan ke Album:</label>
+            <select id="uploadAlbumSelect" class="form-control">
+              <!-- Rendered options -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Upload Queue -->
+        <div class="upload-queue-section" id="uploadQueueContainer" style="display: none;">
+          <div class="queue-header">
+            <h4>Antrean Unggahan (<span id="queueCount">0</span> file)</h4>
+            <span class="queue-total-size" id="queueTotalSize">0 MB</span>
+          </div>
+          <div class="queue-list" id="queueList">
+            <!-- Queue items -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancelUploadBtn">Batal</button>
+        <button type="button" class="btn btn-primary" id="startUploadBtn" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span id="startUploadBtnText">Mulai Unggah (0 File)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Lightbox & Detail Split View -->
+  <div class="lightbox-modal" id="lightboxModal" aria-hidden="true">
+    <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
+
+    <div class="lightbox-content">
+      <!-- Top Navigation Bar -->
+      <div class="lightbox-topbar">
+        <button class="lightbox-back-btn" id="closeLightboxBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span>Kembali ke Galeri</span>
+        </button>
+
+        <div class="lightbox-counter" id="lightboxIndexCounter">Foto 1 dari 10</div>
+
+        <div class="lightbox-top-actions">
+          <button class="btn-icon" id="lightboxFullscreenBtn" title="Layar Penuh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button class="btn-icon" id="closeLightboxTopBtn" title="Tutup Lightbox">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Split Area -->
+      <div class="lightbox-split-body">
+        <!-- Left: Image Viewer -->
+        <div class="lightbox-viewer" id="lightboxViewer">
+          <button class="lightbox-nav-btn nav-prev" id="prevPhotoBtn" title="Foto Sebelumnya (Panah Kiri)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+
+          <div class="lightbox-image-stage" id="imageStage">
+            <img src="" alt="Pratinjau Foto" id="lightboxMainImg" class="lightbox-main-img">
+          </div>
+
+          <button class="lightbox-nav-btn nav-next" id="nextPhotoBtn" title="Foto Berikutnya (Panah Kanan)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+
+          <!-- Viewer Bottom Tools -->
+          <div class="viewer-tools">
+            <button class="tool-btn" id="zoomOutBtn" title="Perkecil">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </button>
+            <span class="zoom-level" id="zoomLevelText">100%</span>
+            <button class="tool-btn" id="zoomInBtn" title="Perbesar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </button>
+            <button class="tool-btn" id="zoomResetBtn" title="Reset Ukuran">Reset</button>
+          </div>
+        </div>
+
+        <!-- Right: Metadata & Management Drawer -->
+        <aside class="lightbox-drawer" id="lightboxDrawer">
+          <div class="drawer-inner">
+            <div class="drawer-header">
+              <h3>Detail & Metadata</h3>
+              <span class="format-badge" id="drawerFormatBadge">JPEG</span>
+            </div>
+
+            <!-- Editable Metadata Form -->
+            <div class="drawer-section">
+              <div class="form-group-field">
+                <label for="detailTitleInput">Judul Foto</label>
+                <input type="text" id="detailTitleInput" class="drawer-input" placeholder="Masukkan judul foto...">
+              </div>
+
+              <div class="form-group-field">
+                <label for="detailDescInput">Deskripsi</label>
+                <textarea id="detailDescInput" rows="3" class="drawer-textarea" placeholder="Tambah catatan atau cerita di balik foto ini..."></textarea>
+              </div>
+
+              <div class="form-group-field">
+                <label for="detailAlbumSelect">Album</label>
+                <select id="detailAlbumSelect" class="drawer-select">
+                  <!-- Rendered options -->
+                </select>
+              </div>
+            </div>
+
+            <hr class="drawer-divider">
+
+            <!-- Technical Specifications (PRD Dual-Asset Info) -->
+            <div class="drawer-section">
+              <h4 class="section-subtitle">Spesifikasi File</h4>
+              <div class="spec-grid">
+                <div class="spec-item">
+                  <span class="spec-label">Nama File Asli</span>
+                  <span class="spec-value" id="specFilename">DSC_0001.JPG</span>
+                </div>
+                <div class="spec-item">
+                  <span class="spec-label">Dimensi Resolusi</span>
+                  <span class="spec-value highlight-cyan" id="specResolution">6000 × 4000</span>
+                </div>
+                <div class="spec-item">
+                  <span class="spec-label">Ukuran File Asli</span>
+                  <span class="spec-value highlight-green" id="specOriginalSize">14.2 MB</span>
+                </div>
+                <div class="spec-item">
+                  <span class="spec-label">Ukuran Thumbnail</span>
+                  <span class="spec-value" id="specThumbSize">160 KB (Fast Load)</span>
+                </div>
+                <div class="spec-item">
+                  <span class="spec-label">Tanggal Diambil</span>
+                  <input type="date" id="specDateInput" class="drawer-date-input">
+                </div>
+              </div>
+            </div>
+
+            <!-- Primary Action Buttons -->
+            <div class="drawer-actions">
+              <!-- PRD Highlight Feature: Original Resolution Download -->
+              <button class="btn btn-download-original" id="downloadOriginalBtn">
+                <div class="download-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </div>
+                <div class="download-text">
+                  <span class="dl-title">Unduh Resolusi Asli</span>
+                  <span class="dl-sub" id="downloadBtnSubtext">Kualitas Asli Tanpa Kompresi (14.2 MB)</span>
+                </div>
+              </button>
+
+              <button class="btn btn-delete-photo" id="deletePhotoBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span>Hapus Foto dari PixelVault</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
