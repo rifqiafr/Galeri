@@ -1,70 +1,88 @@
-# PixelVault — Personal Visual Storage
+# 📸 PixelVault — Aplikasi Web Penyimpanan Foto Pribadi
 
-> Aplikasi web penyimpanan foto pribadi modern tanpa sistem login. Mengutamakan kecepatan akses, antarmuka bersih responsif di seluruh perangkat, manajemen aset visual, serta unduhan resolusi asli tanpa kompresi.
+<p align="center">
+  <img src="icon.svg" alt="PixelVault Logo" width="100" height="100">
+</p>
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat&logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat&logo=javascript&logoColor=black)
-![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-222222?style=flat&logo=githubpages&logoColor=white)
+<p align="center">
+  <strong>Platform penyimpanan foto pribadi terpusat, cepat, dan elegan tanpa hambatan autentikasi. Menjaga kualitas visual asli tanpa kompresi dengan kemudahan akses di semua perangkat.</strong>
+</p>
 
----
-
-## 🌟 Fitur Utama
-
-- **Zero-Friction Access**: Buka dan langsung gunakan tanpa hambatan login/registrasi.
-- **Batch Upload Engine**: Mendukung *drag-and-drop* banyak file sekaligus (JPEG, PNG, WebP) dengan progress bar real-time.
-- **Clipboard Paste (`Ctrl + V`)**: Bisa langsung menempelkan gambar dari *screenshot* atau clipboard tanpa perlu menyimpan file terlebih dahulu.
-- **Manajemen Aset Ganda (Dual-Asset)**: Otomatis membuat thumbnail ringan untuk performa halaman super cepat dan menyimpan file master tanpa kompresi.
-- **Unduh Resolusi Asli (Original Resolution Download)**: Mengembalikan file persis dengan kualitas dan resolusi asli pertama kali diunggah.
-- **Mode Lightbox Split-View**: Pratinjau gambar resolusi tinggi dengan alat zoom, navigasi panah keyboard (`←` / `→` / `Esc`), dan gestur sentuh *swipe* untuk ponsel/tablet.
-- **Pencarian Cepat & Sorting**: Cari instan berdasarkan judul, album, atau nama file, serta urutkan berdasarkan terbaru, terlama, nama, atau ukuran.
-- **100% Responsif**: Dioptimalkan untuk Smartphone, Tablet, Laptop, dan Layar Desktop.
+<p align="center">
+  <img src="https://img.shields.io/badge/Status-Siap_Digunakan-success?style=for-the-badge" alt="Status">
+  <img src="https://img.shields.io/badge/Platform-Web_%26_PWA_Desktop-blueviolet?style=for-the-badge" alt="Platform">
+  <img src="https://img.shields.io/badge/Tanpa_Login-Zero_Friction-indigo?style=for-the-badge" alt="Zero Friction">
+  <img src="https://img.shields.io/badge/Deploy-GitHub_Pages-black?style=for-the-badge&logo=github" alt="Deploy">
+</p>
 
 ---
 
-## 🚀 Panduan Deploy ke GitHub Pages (github.io)
+## 📖 Tentang PixelVault
 
-Proyek ini dibuat menggunakan murni **HTML5, Vanilla CSS, dan Modern JavaScript**, sehingga dapat di-hosting secara gratis di **GitHub Pages** tanpa perlu konfigurasi server backend.
+**PixelVault** lahir dari kebutuhan akan tempat penyimpanan dan pengelolaan koleksi foto pribadi yang praktis, cepat, dan aman dari penurunan kualitas gambar. Banyak platform galeri umum mengompresi foto secara berlebihan atau mewajibkan proses pendaftaran/login yang rumit. 
 
-### Langkah-langkah:
-
-1. **Buat Repositori Baru di GitHub**:
-   - Buka [github.com/new](https://github.com/new).
-   - Beri nama repositori, misalnya: `pixelvault` atau `galeri-foto`.
-   - Pilih visibilitas **Public**.
-   - Klik **Create repository**.
-
-2. **Inisialisasi Git & Push ke GitHub**:
-   Jalankan perintah berikut di terminal/PowerShell pada folder ini (`c:\laragon\www\Galeri`):
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit PixelVault"
-   git branch -M main
-   git remote add origin https://github.com/USERNAME/NAMA-REPOSITORI.git
-   git push -u origin main
-   ```
-   *(Ganti `USERNAME` dan `NAMA-REPOSITORI` sesuai akun GitHub Anda)*
-
-3. **Aktifkan GitHub Pages**:
-   - Masuk ke tab **Settings** di repositori GitHub Anda.
-   - Pilih menu **Pages** di bilah navigasi kiri.
-   - Pada bagian **Build and deployment > Branch**:
-     - Pilih Branch: `main`
-     - Folder: `/ (root)`
-     - Klik tombol **Save**.
-
-4. **Selesai! Akses Web Anda**:
-   Dalam 1–2 menit, web Anda akan aktif dan dapat diakses di:
-   ```text
-   https://USERNAME.github.io/NAMA-REPOSITORI/
-   ```
+PixelVault menghilangkan seluruh hambatan tersebut:
+- **Tanpa Sistem Login (*Zero-Friction Access*)**: Buka alamat situs dan Anda langsung masuk ke dasbor galeri pribadi tanpa perlu mengingat password atau akun.
+- **Kualitas Asli Terjaga (*Original Resolution Guarantee*)**: Foto yang Anda simpan dapat diunduh kembali dengan resolusi piksel dan ukuran file yang persis sama seperti saat pertama kali diambil dari kamera perangkat Anda, tanpa kompresi tambahan.
+- **Arsitektur Aset Ganda (*Dual-Asset Pipeline*)**: Sistem otomatis membuat thumbnail ringan untuk memastikan galeri dimuat secara instan dan mulus (*smooth lazy loading*), sementara berkas master beresolusi penuh tetap tersimpan utuh.
 
 ---
 
-## 💻 Menjalankan Secara Lokal
+## ✨ Fitur-Fitur Unggulan Website
 
-Cukup buka berkas `index.html` langsung di browser Anda, atau jalankan melalui Laragon / Live Server:
-```text
-http://localhost/Galeri/
-```
+### 1. 📤 Upload Engine Fleksibel & Cepat
+- **Drag-and-Drop Batch Upload**: Cukup seret beberapa foto sekaligus ke area unggah.
+- **Clipboard Paste Langsung (`Ctrl + V`)**: Salin gambar dari internet atau ambil *screenshot* (`Win + Shift + S`), lalu tekan `Ctrl + V` di halaman PixelVault — foto akan otomatis masuk ke antrean unggah tanpa perlu disimpan ke disk terlebih dahulu!
+- **Validasi Format Otomatis**: Mendukung format gambar standar: **JPEG, PNG, dan WebP**.
+- **Indikator Real-Time**: Dilengkapi pratinjau thumbnail, info ukuran berkas, dan progress bar pemrosesan.
+- **Tanpa Refresh Halaman**: Foto yang baru diunggah langsung disisipkan di urutan pertama galeri secara instan.
+
+### 2. 🖼️ Mode Lightbox Imersif & Split-Screen Viewer
+- **Tampilan Penuh Bebas Distorsi**: Pratinjau foto resolusi tinggi dengan latar belakang gelap elegan (*Dark Slate Vault*).
+- **Alat Navigasi & Zoom**:
+  - Tombol *Next* dan *Previous* di layar atau menggunakan tombol panah keyboard (`←` dan `→`).
+  - Fitur perbesar (*Zoom In*), perkecil (*Zoom Out*), dan reset ukuran ke 100%.
+  - Dukungan layar penuh (*Fullscreen mode*).
+  - **Gestur Layar Sentuh (*Touch Swipe*)**: Di ponsel atau tablet, cukup geser jari ke kiri atau kanan untuk berpindah foto.
+
+### 3. 💾 Unduh Resolusi Asli (Original Download)
+- Tombol aksi utama yang menonjol di setiap foto memungkinkan Anda mengunduh master foto asli kapan saja dengan sekali klik, mengembalikan detail piksel penuh untuk kebutuhan cetak atau pengeditan profesional.
+
+### 4. 🗂️ Pengelolaan & Metadata Foto
+- Kelola judul dan deskripsi catatan untuk setiap momen foto.
+- Kelompokkan foto berdasarkan **Album** pilihan Anda.
+- Lihat spesifikasi teknis lengkap: format, resolusi piksel (misal *6000 × 4000*), ukuran berkas asli vs ukuran thumbnail, serta tanggal pengambilan foto.
+- Hapus foto yang tidak diinginkan dengan aman.
+
+### 5. 🔍 Pencarian Pintar & Pengurutan
+- **Pencarian Cepat**: Temukan foto secara instan berdasarkan judul, nama berkas, deskripsi, atau nama album.
+- **Pengurutan (Sort)**: Urutkan koleksi berdasarkan *Terbaru, Terlama, Nama (A-Z)*, atau *Ukuran File Terbesar*.
+
+### 6. 📱 Dukungan PWA & Desktop App
+- Website ini dapat dipasang sebagai **Aplikasi Desktop di Komputer (Windows/Mac)** dan **Ikon Beranda di Smartphone (Android/iOS)**.
+- Berjalan di jendela tersendiri tanpa bilah URL browser, memberikan pengalaman selayaknya aplikasi native.
+
+---
+
+## 🛠️ Tumpukan Teknologi (Tech Stack)
+
+Website ini dirancang secara modern tanpa *framework* berat untuk memaksimalkan kecepatan muat (*lightweight & blazingly fast*):
+
+| Komponen | Teknologi | Deskripsi |
+| :--- | :--- | :--- |
+| **Markup** | HTML5 Semantik | Struktur konten aksesibel, ramah SEO, dan terorganisir. |
+| **Gaya Desain** | Vanilla CSS3 | *Dark Vault Theme*, Glassmorphism, CSS Custom Properties, responsif multi-breakpoint. |
+| **Logika Aplikasi** | Modern JavaScript (ES6+) | Penanganan event clipboard, manipulasi DOM real-time, touch gestures, state management lokal. |
+| **Progressive Web App** | Service Worker & Web Manifest | Caching offline, splash screen, dan instalasi aplikasi desktop/mobile. |
+| **Penyimpanan Lokal** | Browser Storage & Blob URL | Menyimpan data koleksi langsung di perangkat pengguna secara privat. |
+
+---
+
+## 📱 Responsif di Seluruh Perangkat
+
+Website PixelVault telah diuji dan dioptimalkan untuk berbagai resolusi layar:
+- 📱 **Mobile (< 540px)**: Tampilan galeri 2 kolom rapat bergaya galeri smartphone modern, drawer bawah responsif, dan kontrol ramah jempol.
+- 📟 **Tablet (541px – 1024px)**: Tata letak 3–4 kolom yang lapang dengan adaptasi orientasi vertikal/horizontal.
+- 💻 **Desktop & Laptop (> 1024px)**: Grid galeri lebar dengan hover micro-interactions dan mode split-view viewer di sebelah kiri serta panel detail di kanan.
+
+---
