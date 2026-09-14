@@ -359,6 +359,10 @@ button, input, select, textarea {
   font-weight: 600;
 }
 
+.cloud-sync-status.online {
+  color: var(--accent-emerald);
+}
+
 .cloud-sync-status.syncing {
   color: var(--accent-cyan);
 }
