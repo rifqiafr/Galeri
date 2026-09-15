@@ -3,7 +3,7 @@
  * Caches core app assets for instant loading & offline capability
  */
 
-const CACHE_NAME = 'pixelvault-v3';
+const CACHE_NAME = 'pixelvault-v4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

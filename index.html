@@ -259,6 +259,14 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
             </button>
             <button class="tool-btn" id="zoomResetBtn" title="Reset Ukuran">Reset</button>
+            <div class="viewer-tools-divider"></div>
+            <button class="tool-btn tool-btn-copy" id="viewerCopyBtn" title="Salin Foto ke Clipboard (Ctrl+C)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Salin</span>
+            </button>
           </div>
         </div>
 
@@ -321,6 +329,20 @@
 
             <!-- Primary Action Buttons -->
             <div class="drawer-actions">
+              <!-- Copy Photo to Clipboard Button -->
+              <button class="btn btn-copy-photo" id="copyPhotoBtn" title="Salin Foto ke Clipboard (Bisa langsung Ctrl+V / Paste)">
+                <div class="copy-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </div>
+                <div class="copy-text">
+                  <span class="copy-title">Salin Foto (Copy)</span>
+                  <span class="copy-sub" id="copyBtnSubtext">Salin ke Clipboard untuk Paste (Ctrl+V)</span>
+                </div>
+              </button>
+
               <!-- PRD Highlight Feature: Original Resolution Download -->
               <button class="btn btn-download-original" id="downloadOriginalBtn">
                 <div class="download-icon">
@@ -350,6 +372,6 @@
   <!-- Toast Notification System -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script type="module" src="app.js?v=2.2"></script>
+  <script type="module" src="app.js?v=2.3"></script>
 </body>
 </html>

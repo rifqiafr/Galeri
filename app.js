@@ -258,6 +258,9 @@ const specOriginalSize = document.getElementById('specOriginalSize');
 const specThumbSize = document.getElementById('specThumbSize');
 const specDateInput = document.getElementById('specDateInput');
 const drawerFormatBadge = document.getElementById('drawerFormatBadge');
+const copyPhotoBtn = document.getElementById('copyPhotoBtn');
+const copyBtnSubtext = document.getElementById('copyBtnSubtext');
+const viewerCopyBtn = document.getElementById('viewerCopyBtn');
 const downloadOriginalBtn = document.getElementById('downloadOriginalBtn');
 const downloadBtnSubtext = document.getElementById('downloadBtnSubtext');
 const deletePhotoBtn = document.getElementById('deletePhotoBtn');
@@ -386,9 +389,13 @@ function renderGalleryGrid() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
             <span>Detail</span>
           </button>
-          <button class="btn-card-action btn-quick-download" data-id="${photo.id}">
+          <button class="btn-card-action btn-quick-copy" data-id="${photo.id}" title="Salin Foto ke Clipboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Salin</span>
+          </button>
+          <button class="btn-card-action btn-quick-download" data-id="${photo.id}" title="Unduh Resolusi Asli">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            <span>Unduh Asli</span>
+            <span>Unduh</span>
           </button>
         </div>
       </div>
@@ -396,16 +403,27 @@ function renderGalleryGrid() {
 
     // Click card opens Lightbox
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.btn-quick-download')) return;
+      if (e.target.closest('.btn-quick-download') || e.target.closest('.btn-quick-copy')) return;
       openLightbox(index);
     });
 
+    // Quick copy trigger
+    const quickCopyBtn = card.querySelector('.btn-quick-copy');
+    if (quickCopyBtn) {
+      quickCopyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyPhotoToClipboard(photo);
+      });
+    }
+
     // Quick download trigger
     const quickDlBtn = card.querySelector('.btn-quick-download');
-    quickDlBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      downloadPhotoOriginal(photo);
-    });
+    if (quickDlBtn) {
+      quickDlBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        downloadPhotoOriginal(photo);
+      });
+    }
 
     galleryGrid.appendChild(card);
   });
@@ -688,8 +706,14 @@ function loadLightboxPhoto(photo) {
   specThumbSize.textContent = `${photo.thumbSizeKB || 150} KB (Fast Load)`;
   specDateInput.value = photo.dateTaken || '';
 
-  // Download CTA subtext
+  // Download & Copy CTA subtext
   downloadBtnSubtext.textContent = `Unduh Kualitas Penuh (${photo.originalSizeMB ? photo.originalSizeMB.toFixed(1) + ' MB' : 'HD'})`;
+  if (copyBtnSubtext) {
+    copyBtnSubtext.textContent = 'Salin ke Clipboard untuk Paste (Ctrl+V)';
+  }
+  if (copyPhotoBtn) {
+    copyPhotoBtn.classList.remove('copied');
+  }
 }
 
 function navigateLightbox(direction) {
@@ -706,6 +730,130 @@ function navigateLightbox(direction) {
 function applyZoom() {
   imageStage.style.transform = `scale(${state.zoomLevel / 100})`;
   zoomLevelText.textContent = `${state.zoomLevel}%`;
+}
+
+// -----------------------------------------------------------------------------
+// Copy Photo to Clipboard Engine (PRD Feature: Salin Foto / Copy)
+// -----------------------------------------------------------------------------
+async function convertImageToPngBlob(source) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    let urlToRevoke = null;
+
+    if (source instanceof Blob) {
+      urlToRevoke = URL.createObjectURL(source);
+      img.src = urlToRevoke;
+    } else if (typeof source === 'string') {
+      img.src = source;
+    } else {
+      return reject(new Error('Format sumber foto tidak didukung'));
+    }
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        let w = img.naturalWidth || img.width;
+        let h = img.naturalHeight || img.height;
+
+        // Batasi dimensi maksimum 4096 px untuk mencegah beban memori berlebih pada clipboard
+        const MAX_CLIPBOARD_DIM = 4096;
+        if (w > MAX_CLIPBOARD_DIM || h > MAX_CLIPBOARD_DIM) {
+          if (w > h) {
+            h = Math.round((h * MAX_CLIPBOARD_DIM) / w);
+            w = MAX_CLIPBOARD_DIM;
+          } else {
+            w = Math.round((w * MAX_CLIPBOARD_DIM) / h);
+            h = MAX_CLIPBOARD_DIM;
+          }
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Canvas gagal menghasilkan Blob PNG'));
+          }
+        }, 'image/png');
+      } catch (err) {
+        if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+        reject(err);
+      }
+    };
+
+    img.onerror = () => {
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+      reject(new Error('Gagal memuat gambar untuk disalin'));
+    };
+  });
+}
+
+async function copyPhotoToClipboard(photo) {
+  if (!photo) return;
+
+  if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+    showToast('Browser Anda belum mendukung salin gambar otomatis. Anda bisa klik kanan foto lalu pilih "Salin Gambar".', 'warning');
+    return;
+  }
+
+  showToast(`Menyiapkan "${photo.title}" untuk disalin ke clipboard...`, 'info');
+
+  try {
+    // 1. Ambil file master asli dari IndexedDB jika ada di perangkat ini
+    let source = null;
+    try {
+      const blob = await getVaultBlob(photo.id);
+      if (blob) source = blob;
+    } catch (e) {
+      console.warn('Gagal membaca IndexedDB:', e);
+    }
+
+    // 2. Jika tidak ada di IndexedDB, gunakan originalUrl atau thumbUrl
+    if (!source) {
+      source = photo.originalUrl || photo.thumbUrl;
+    }
+
+    if (!source) {
+      showToast('File foto tidak ditemukan untuk disalin.', 'danger');
+      return;
+    }
+
+    // 3. Konversi ke PNG Blob (Format universal yang diwajibkan oleh W3C Clipboard API)
+    const pngBlob = await convertImageToPngBlob(source);
+
+    // 4. Tulis ke Clipboard sistem
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'image/png': pngBlob
+      })
+    ]);
+
+    // 5. Notifikasi & animasi tombol
+    showToast(`✅ Foto "${photo.title}" berhasil disalin ke clipboard! (Langsung Ctrl+V untuk Paste)`, 'success');
+
+    if (copyPhotoBtn && copyBtnSubtext) {
+      copyPhotoBtn.classList.add('copied');
+      const prevText = copyBtnSubtext.textContent;
+      copyBtnSubtext.textContent = 'Tersalin ke Clipboard! ✓ (Bisa Ctrl+V)';
+      setTimeout(() => {
+        copyPhotoBtn.classList.remove('copied');
+        copyBtnSubtext.textContent = prevText;
+      }, 2500);
+    }
+  } catch (err) {
+    console.error('Gagal menyalin foto:', err);
+    if (err.name === 'NotAllowedError') {
+      showToast('Izin akses clipboard ditolak. Berikan izin di browser atau klik kanan foto lalu pilih "Salin Gambar".', 'danger');
+    } else {
+      showToast('Gagal menyalin: ' + (err.message || 'Error tidak terduga') + '. Anda bisa klik kanan foto lalu pilih "Salin Gambar".', 'warning');
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -964,6 +1112,22 @@ function attachEventListeners() {
     }
   });
 
+  // Copy Photo to Clipboard
+  if (copyPhotoBtn) {
+    copyPhotoBtn.addEventListener('click', () => {
+      const photo = state.filteredPhotos[state.currentLightboxIndex];
+      copyPhotoToClipboard(photo);
+    });
+  }
+
+  // Viewer Toolbar Copy Button
+  if (viewerCopyBtn) {
+    viewerCopyBtn.addEventListener('click', () => {
+      const photo = state.filteredPhotos[state.currentLightboxIndex];
+      copyPhotoToClipboard(photo);
+    });
+  }
+
   // Download Original Resolution
   downloadOriginalBtn.addEventListener('click', () => {
     const photo = state.filteredPhotos[state.currentLightboxIndex];
@@ -973,12 +1137,22 @@ function attachEventListeners() {
   // Delete Photo
   deletePhotoBtn.addEventListener('click', deleteCurrentPhoto);
 
-  // Keyboard Navigation (Arrow Keys, Escape)
+  // Keyboard Navigation (Arrow Keys, Escape, Ctrl+C to Copy)
   window.addEventListener('keydown', (e) => {
     if (lightboxModal.classList.contains('open')) {
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') navigateLightbox(-1);
       if (e.key === 'ArrowRight') navigateLightbox(1);
+
+      // Shortcut Ctrl+C / Cmd+C untuk salin foto ke clipboard saat lightbox terbuka
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          e.preventDefault();
+          const photo = state.filteredPhotos[state.currentLightboxIndex];
+          copyPhotoToClipboard(photo);
+        }
+      }
     } else if (uploadModal.classList.contains('open')) {
       if (e.key === 'Escape') closeUploadModal();
     }
